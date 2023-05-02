@@ -1,0 +1,134 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+    <link href="images/favicon.png" rel="icon" type="image/x-icon" />
+    <link rel="stylesheet" type="text/css" href="css/adminStyle.css">
+    <script src="js/jquery.min.js"></script>
+</head>
+<body>
+
+    <nav class="topnav">
+
+        <a style="background-color: #44296e;" href="index.html">Home</a>
+        <a id="VacanciesModal-btn" class="LinkToModal topNavSelected">Vacancies</a>
+        <a id="HiringModal-btn" class="LinkToModal">Hiring</a>
+        <a id="UsersModal-btn" class="LinkToModal">Users</a>
+        <a id="EmployeesModal-btn" class="LinkToModal">Employees</a>
+        <a id="DictionaryModal-btn" class="LinkToModal">Dictionary</a>
+        <a style="float: right;" id="UsernameModal-btn">Username</a>
+    </nav>
+    <h1 class="WelcomeToPanel">Welcome:</h1>
+    <table class="VacanciesTable">
+        <thead>
+
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <table class="HiringTable" style="display: none;">
+        <thead>
+
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <table class="UsersTable" style="display: none;">
+        <thead>
+
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <table class="EmployeesTable" style="display: none;">
+        <thead>
+
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <table class="DictionaryTable" style="display: none;">
+        <thead>
+
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <button class="addVacancies"> Add Vacancy</button>
+
+
+    <div class="PopUpAddVacancyWindow-Behind">
+        <div class="PopUpAddVacancyWindow">
+            <div class="PopUpAddVacancyWindow-body">
+                <label for="SelectModel">Select a Model:</label>
+                <select id="SelectModel">
+                    <option>SelectVacancy</option>
+                </select>
+                <br>
+                <label for="VacTitle">Insert a title</label>
+                <input type="text" id="VacTitle">
+                <br>
+                <label for="SetDate">Set a end Date</label>
+                <input type="date" id="SetDate">
+
+            </div>
+            <div class="PopUpAddVacancyWindow-body2">
+                <textarea value="this is a textarea" id="VacancyDesc" placeholder="Place Description"></textarea>
+                <br />
+                <button id="ExitFromVacancyWindow">X</button>
+                <button id="EditVacancyButton">SaveEditing</button>
+                <button id="DeleteVacancyButton">DeleteVacancy</button>
+                <button id="AddVacancyButton">AddVacancy</button>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="PopUpEditHiringWindow-Behind">
+        <div class="PopUpEditHiringWindow">
+            <div class="PopUpEditHiringWindow-body">
+                <button id="CandidatStatus">Status</button>
+                <br />
+                <label for="ShowCandidatInfo" class="CandidatName">Candidat Name</label>
+                <button id="ShowCandidatInfo">ShowInfo</button>
+                <button id="ShowCandidatCV">ShowCV</button>
+                <br />
+                <label class="CandidatEditedBy">Who edited</label>
+                <label class="CandidatSelectedVacancy">Selected Vacancy</label>
+                <br />
+                <label class="CandidatLastEdit">Last Edited Date</label>
+            </div>
+            <div class="PopUpEditHiringWindow-body2">
+                <hr />
+                <textarea value="this is a textarea" id="HiringDesc" placeholder="Place Description"></textarea>
+                <br />
+                <button id="ExitFromHiringWindow">X</button>
+                <button id="EditHiringButton">SaveEditing</button>
+                <button id="DeleteHiringButton">DeleteCandidat</button>
+            </div>
+        </div>
+        <div class="PopUpCandidatInfoWindow">
+            <button id="ExitFromCandidatInfoWindow">X</button>
+            <br />
+            <br />
+            <label>Wiew Info</label>
+            <label class="CandidatNameWithSurname">Name/Surname</label>
+            <br />
+            <label class="CandidatEmail">Email</label>
+            <br />
+            <label class="CandidatPhone">Phone</label>
+        </div>
+    </div>
+
+    <script src="js/HRupdate.js"></script>
+    
+    <!--<script type="text/javascript" src="js/modals.js"></script>-->
+</body>
+</html>
