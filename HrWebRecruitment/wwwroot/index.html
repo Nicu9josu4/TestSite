@@ -25,14 +25,14 @@
             </ul>
         </div>
         <ul>
-            <li><a href="#login" id="loginBtn">Log In</a></li>
+            <li id="loginBtn"><a href="#login">Log In</a></li> <!--/adminPanel.html-->
         </ul>
     </header>
 
 
     <section class="home" id="home">
         <div class="text-box">
-            <h1 class="heading">Bun venit pe "denumire"</h1>
+            <h1 class="heading">Bun venit la <span style="color:darkred; font-size:1.1em;">NovaSphere Solutions</span></h1>
             <p>
                 Cauti un loc de munca si ai la mana un CV? Atunci cu siguranta ai nevoie de site-ul nostru!<br>
                 Aplicand aici una din vacansiile disponibile iti poti gasi pasiunea!
@@ -61,7 +61,7 @@
                 </div>
 
                 <button class="cancelbtn" id="close" type="button">Cancel</button>
-                <span id="Forgot-password"><a href="#" style="text-decoration: none; font-weight: bold; margin-left: 55%; color: #8A307F">Forgot password?</a></span>
+                <!--<span id="Forgot-password">--><!--<a href="#" style="text-decoration: none; font-weight: bold; margin-left: 55%; color: #8A307F">Forgot password?</a>--><!--</span>-->
             </form>
         </div>
     </div>
@@ -132,7 +132,7 @@
                     <input class="formInput formInputName" name="formInputName" type="text" placeholder="Nume" />
                     <input class="formInput formInputSurname" name="formInputSurname" type="text" placeholder="Prenume" />
                     <input class="formInput formInputEmail" name="formInputEmail" type="text" placeholder="Email" />
-                    <input class="formInput formInputPhone" name="formInputPhone" type="text" placeholder="Telefon" />
+                    <input class="formInput formInputPhone" id="formInputPhone" name="formInputPhone" type="text" placeholder="Telefon" />
                     <br />
                     <label class="formLabel" for="UploadCV">Incarca CV</label>
                     <input type="file" id="UploadCV" style="display: none;" />

@@ -1,9 +1,13 @@
-using HrWebRecruitment.Models;
+using HrWebRecruitment;
+using HrWebRecruitment.Contexts;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Oracle.ManagedDataAccess.Client;
 using Oracle.ManagedDataAccess.Types;
 using System.Data;
+using System.Net;
 
 internal class Program
 {
@@ -11,12 +15,14 @@ internal class Program
     {
         string _json;
         var builder = WebApplication.CreateBuilder(args);
-
+        builder.Services.AddDbContext<ModelContext>();
         // Add services to the container.
 
         var app = builder.Build();
         string? _connectionString = app.Configuration.GetConnectionString("DefaultConnection");
         // Configure the HTTP request pipeline.
+        ILoggerFactory loggerFactory = app.Services.GetService<ILoggerFactory>();
+        ILogger logger = loggerFactory.CreateLogger("Program");
 
         app.UseHttpsRedirection();
 
@@ -26,348 +32,726 @@ internal class Program
         app.UseStatusCodePages();
         app.UseRouting();
 
-        app.MapPost("/", async () =>
+
+        app.MapPost("/aplicate", async (HttpContext context, ModelContext db) =>
         {
-            string cmdStr = "select * from Vacancies";
-            List<Vacancies> VacancyList = new();
-            using (OracleConnection conn = new(_connectionString))
+
+            try
             {
-                OracleCommand cmd = new(cmdStr, conn);
-                conn.Open();
-                OracleDataReader read = cmd.ExecuteReader();
-                while (read.Read())
+                var form = context.Request.Form;
+                if (form.Files != null)
                 {
-                    Vacancies Vacancy = new()
+                    var file = form.Files[0];
+                    var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot\\Uploads\\" + file.FileName);
+                    using (var stream = new FileStream(path, FileMode.Create))
                     {
-                        ID = Convert.ToInt32(read["id"]),
-                        Title = read["Title"].ToString(),
-                        Description = read["Description"].ToString(),
-                        StartDate = Convert.ToDateTime(read["StartDate"]).ToString("dd.MM.yyyy"),
-                        EndDate = Convert.ToDateTime(read["EndDate"]).ToString("dd.MM.yyyy")
-                    };
-                    VacancyList.Add(Vacancy);
+                       await file.CopyToAsync(stream);
+                    }
+                    var vac = db.Vacancies.ToList().FirstOrDefault(vacancy => vacancy.Title == form["VacancyTitle"]);
+                    var IdNewName = db.Dictionaries.ToList().FirstOrDefault(dictionary => dictionary.Name == "New");
+                    db.Add(new Candidat
+                    {
+                        FirstName = form["Name"],
+                        LastName = form["Surname"], 
+                        Email = form["Email"],
+                        Phone = form["Phone"].ToString(),
+                        Linkcv = "Uploads\\" + file.FileName
+
+                    });
+                    db.SaveChanges();
+                    db.Add(new Hiring
+                    {
+                        Candidat = db.Candidats.Max(candidat => candidat.Id),
+                        Vacancy = vac.Id,
+                        StatusDate = DateTime.Now,
+                        Status = IdNewName.Id,
+                    });
+                    db.SaveChanges();
                 }
-                read.Close();
-                string json = JsonConvert.SerializeObject(VacancyList);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex.Message + " " + ex.StackTrace);
+            }
+            Results.Redirect("/");
+        });
+        app.MapPost("/", async (context) =>
+        {
+            context.Response.ContentType = "text/html";
+            await context.Response.SendFileAsync(@"wwwroot/index.html");
+        });
+        app.MapPost("/getVacancies", async (ModelContext db) =>
+        {
+            try
+            {
+                var vacancies = db.Vacancies.ToList();
+                string json = JsonConvert.SerializeObject(vacancies);
                 await Task.Delay(100);
                 return json;
             }
-        });
-        app.MapPut("/", (HttpContext context) =>
-        {
-            //string _fileName;
-            var form = context.Request.Form;
-            var file = form.Files;
-            string? Title = form["VacancyTitle"];
-            //if (context.Request.Files.Count > 0)
-            //{
-            //    HttpPostedFile postedFile = context.Request.Files[0];
-            //    //Set the Folder Path.
-            //    string folderPath = context.Server.MapPath("/Uploads/");
-            //    //Set the File Name.
-            //    _fileName = Path.GetFileName(postedFile.FileName);
-            //    //Save the File in Folder.
-            //    postedFile.SaveAs(folderPath + _fileName);
-            //}
-            using (OracleConnection conn = new OracleConnection(_connectionString))
+            catch (Exception ex)
             {
-                conn.Open();
-                using (OracleCommand cmd = conn.CreateCommand())
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.CommandText = "Set_Candidat";
-                    cmd.Parameters.Add("P_VacancyTitle", OracleDbType.Varchar2).Value = form["VacancyTitle"];
-                    cmd.Parameters.Add("P_Name", OracleDbType.Varchar2).Value = form["Name"];
-                    cmd.Parameters.Add("P_Surname", OracleDbType.Varchar2).Value = form["Surname"];
-                    cmd.Parameters.Add("P_Email", OracleDbType.Varchar2).Value = form["Email"];
-                    cmd.Parameters.Add("P_Phone", OracleDbType.Varchar2).Value = form["Phone"];
-                    cmd.Parameters.Add("P_LinkCV", OracleDbType.Varchar2).Value = "/Uploads/" + file[0].FileName;
-                    cmd.ExecuteNonQuery();
-                    return Results.Redirect("/");
-                }
+                logger.LogError(ex.Message + " " + ex.StackTrace);
+                return ex.Message;
             }
         });
-        app.MapPost("/login", (HttpContext context) =>
+
+        app.MapPost("/login", (HttpContext context, ModelContext db) =>
         {
-            var form = context.Request.Form;
-            string? userName = form["uname"];
-            string? userPass = form["pname"];
-            string cmdStr = "select * from users where Username = '" + userName + "' and Password = '" + userPass + "'";
-            List<User> UserList = new List<User>();
-            using (OracleConnection conn = new OracleConnection(_connectionString))
+            try
             {
-                OracleCommand cmd = new OracleCommand(cmdStr, conn);
-                conn.Open();
-                OracleDataReader read = cmd.ExecuteReader();
-                while (read.Read())
-                {
-                    User webUser = new User
-                    {
-                        ID = Convert.ToInt32(read["ID"]),
-                        Username = read["Username"].ToString(),
-                        Password = read["Password"].ToString(),
-                        RoleID = Convert.ToInt32(read["RoleID"]).ToString()
-                    };
-                    UserList.Add(webUser);
-                }
-                read.Close();
-                string json = JsonConvert.SerializeObject(UserList);
+                var form = context.Request.Form;
+                var user = db.Users.ToList().FirstOrDefault(user => user.Username == form["uname"] && user.Password == form["pname"]);
+                string json = JsonConvert.SerializeObject(user);
                 return (json);
             }
+            catch (Exception ex)
+            {
+                logger.LogError(ex.Message + " " + ex.StackTrace);
+                return ex.Message;
+            }
         });
-        app.MapGet("/AdminPanel.html/{target}", (string target) =>
+        app.MapGet("/AdminPanel.html/{target}", (string target, ModelContext db) =>
         {
             string _json = " ";
             switch (target)
             {
                 case "GetVacancy":
                     {
-                        string cmdStr = "select * from Vacancies";
-                        List<Vacancies> VacancyList = new List<Vacancies>();
-                        using (OracleConnection conn = new OracleConnection(_connectionString))
+                        try
                         {
-                            OracleCommand cmd = new OracleCommand(cmdStr, conn);
-                            conn.Open();
-                            OracleDataReader read = cmd.ExecuteReader();
-                            while (read.Read())
-                            {
-                                Vacancies Vacancy = new Vacancies();
-                                Vacancy.ID = Convert.ToInt32(read["id"]);
-                                Vacancy.Title = read["Title"].ToString();
-                                Vacancy.Description = read["Description"].ToString();
-                                Vacancy.StartDate = Convert.ToDateTime(read["StartDate"]).ToString("dd.MM.yyyy");
-                                Vacancy.EndDate = Convert.ToDateTime(read["EndDate"]).ToString("dd.MM.yyyy");
-                                VacancyList.Add(Vacancy);
-                            }
-                            read.Close();
-                            _json = JsonConvert.SerializeObject(VacancyList);
+                            var vacancies = db.Vacancies.ToList();
+                            _json = JsonConvert.SerializeObject(vacancies);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
                         }
                         break;
                     }
                 case "GetHiring":
                     {
-                        string cmdStr = "SELECT h.id,c.first_name || ' ' || c.last_name AS candidat,u.first_name || ' ' || u.last_name AS USERS,d.name AS status,v.title AS vacancy,h.statusdate,h.comm from HIRING h LEFT JOIN candidat c ON h.candidat = c.id LEFT JOIN USERS u ON h.users = u.id LEFT JOIN DICTIONARY d ON h.status = d.id LEFT JOIN vacancies v ON h.vacancy = v.id ORDER BY h.id";
-                        //string cmdStr = "select * from Hiring";
-                        List<Hiring> HiringList = new List<Hiring>();
-                        using (OracleConnection conn = new OracleConnection(_connectionString))
+                        try
                         {
-                            OracleCommand cmd = new OracleCommand(cmdStr, conn);
-                            conn.Open();
-                            OracleDataReader read = cmd.ExecuteReader();
-                            while (read.Read())
-                            {
-                                Hiring Hiring = new Hiring();
-                                Hiring.ID = Convert.ToInt32(read["id"]);
-                                Hiring.Candidat = read["Candidat"].ToString();
-                                Hiring.Users = read["Users"].ToString();
-                                Hiring.Status = read["Status"].ToString();
-                                Hiring.Vacancy = read["Vacancy"].ToString();
-                                Hiring.StatusDate = Convert.ToDateTime(read["StatusDate"]).ToString("dd.MM.yyyy");
-                                Hiring.Commentary = read["COMM"].ToString();
-                                HiringList.Add(Hiring);
-                            }
-                            read.Close();
-                            _json = JsonConvert.SerializeObject(HiringList);
+                            var hiringList = (from H in db.Hirings
+                                              join C in db.Candidats on H.Candidat equals C.Id into JoinedCandidat
+                                              from C in JoinedCandidat.DefaultIfEmpty()
+                                              join U in db.Users on H.Users equals U.Id into JoinedUsers
+                                              from U in JoinedUsers.DefaultIfEmpty()
+                                              join D in db.Dictionaries on H.Status equals D.Id into JoinedDictionaries
+                                              from D in JoinedDictionaries.DefaultIfEmpty()
+                                              join V in db.Vacancies on H.Vacancy equals V.Id
+                                              into JoinedHiring
+                                              orderby H.Id
+                                              from hList in JoinedHiring.DefaultIfEmpty()
+                                              where H.Status != 8
+                                              select new
+                                              {
+                                                  HiringId = H.Id,
+                                                  CandidatID = H.Candidat,
+                                                  Candidat = C.FirstName + " " + C.LastName,
+                                                  User = U.FirstName + U.LastName ?? "admin",
+                                                  Status = D.Name,
+                                                  Vacancy = hList.Title,
+                                                  H.StatusDate,
+                                                  Comm = H.Comm ?? "required",
+                                                  CV = C.Linkcv
+                                              }).ToList();
+                            _json = JsonConvert.SerializeObject(hiringList);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
                         }
                         break;
                     }
                 case "GetUsers":
                     {
-                        //string enddate;
-                        string cmdStr = "SELECT u.id, u.username, u.password, u.first_name, u.last_name, u.email, d.name AS RoleId, u.startdata, u.enddata FROM USERS u LEFT JOIN DICTIONARY d ON u.roleid = d.id ORDER BY u.id";
-                        //string cmdStr = "select * from Users";
-                        List<User> UserList = new List<User>();
-                        using (OracleConnection conn = new OracleConnection(_connectionString))
+                        try
                         {
-                            OracleCommand cmd = new OracleCommand(cmdStr, conn);
-                            conn.Open();
-                            OracleDataReader read = cmd.ExecuteReader();
-                            while (read.Read())
-                            {
-                                User User = new User();
-                                User.ID = Convert.ToInt32(read["id"]);
-                                User.Username = read["Username"].ToString();
-                                User.Password = read["Password"].ToString();
-                                User.FirstName = read["First_Name"].ToString();
-                                User.LastName = read["Last_Name"].ToString();
-                                User.Email = read["Email"].ToString();
-                                User.RoleID = read["RoleID"].ToString();
-                                User.StartDate = Convert.ToDateTime(read["StartData"]).ToString("dd.MM.yyyy");
-                                User.EndDate = read["EndData"].ToString();
-                                UserList.Add(User);
-                            }
-                            read.Close();
-                            _json = JsonConvert.SerializeObject(UserList);
+                            var userList = (from U in db.Users
+                                            join D in db.Dictionaries on U.Roleid equals D.Id
+                                            orderby U.Id
+                                            select new
+                                            {
+                                                U.Id,
+                                                U.Username,
+                                                U.Password,
+                                                U.FirstName,
+                                                U.LastName,
+                                                U.Email,
+                                                RoleId = D.Name,
+                                                U.StartDate,
+                                                U.EndDate,
+                                            }).ToList();
+                            _json = JsonConvert.SerializeObject(userList);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
                         }
                         break;
                     }
                 case "GetEmployees":
                     {
-                        string cmdStr = "select e.id,e.first_name,e.last_name,e.phone,e.email, dd.name AS Department, d.name AS position,  c.first_name || ' ' || c.last_name AS hiring ,e.startdate, e.enddate from EMPLOYEE e LEFT JOIN DICTIONARY d ON e.position = d.id LEFT JOIN DICTIONARY dd ON e.department = dd.id LEFT JOIN hiring h ON e.hiring = h.id LEFT JOIN candidat c ON c.id = h.candidat ORDER BY e.id";
-                        //string cmdStr = "select * from Users";
-                        List<Employees> EmployeesList = new List<Employees>();
-                        using (OracleConnection conn = new OracleConnection(_connectionString))
+                        try
                         {
-                            OracleCommand cmd = new OracleCommand(cmdStr, conn);
-                            conn.Open();
-                            OracleDataReader read = cmd.ExecuteReader();
-                            while (read.Read())
-                            {
-                                Employees Employees = new Employees();
-                                Employees.ID = Convert.ToInt32(read["id"]);
-                                Employees.FirstName = read["First_Name"].ToString();
-                                Employees.LastName = read["Last_Name"].ToString();
-                                Employees.Phone = read["Phone"].ToString();
-                                Employees.Email = read["Email"].ToString();
-                                Employees.Department = read["Department"].ToString();
-                                Employees.Position = read["Position"].ToString();
-                                Employees.Hiring = read["Hiring"].ToString();
-                                Employees.StartDate = Convert.ToDateTime(read["StartDate"]).ToString("dd.MM.yyyy");
-                                Employees.EndDate = read["EndDate"].ToString();
-                                EmployeesList.Add(Employees);
-                            }
-                            read.Close();
-                            _json = JsonConvert.SerializeObject(EmployeesList);
+                            var employeesList = (from E in db.Employees
+                                                 join D in db.Dictionaries on E.Position equals D.Id into JoinedDictionaries
+                                                 from D in JoinedDictionaries.DefaultIfEmpty()
+                                                 join DD in db.Dictionaries on E.Department equals DD.Id into JoinedDictionaries2
+                                                 from DD in JoinedDictionaries2.DefaultIfEmpty()
+                                                 join H in db.Hirings on E.Hiring equals H.Id into JoinedHirings
+                                                 from H in JoinedHirings.DefaultIfEmpty()
+                                                 join C in db.Candidats on H.Candidat equals C.Id
+                                                 orderby E.Id
+                                                 select new
+                                                 {
+                                                     E.Id,
+                                                     E.FirstName,
+                                                     E.LastName,
+                                                     E.Phone,
+                                                     E.Email,
+                                                     Department = DD.Name,
+                                                     Position = D.Name,
+                                                     Hiring = C.FirstName + C.LastName,
+                                                     E.StartDate,
+                                                     E.EndDate
+                                                 }).ToList();
+                            _json = JsonConvert.SerializeObject(employeesList);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
                         }
                         break;
                     }
                 case "GetDictionary":
                     {
-                        string cmdStr = "select * from Dictionary";
-                        List<Dictionary> DictionaryList = new List<Dictionary>();
-                        using (OracleConnection conn = new OracleConnection(_connectionString))
+                        try
                         {
-                            OracleCommand cmd = new OracleCommand(cmdStr, conn);
-                            conn.Open();
-                            OracleDataReader read = cmd.ExecuteReader();
-                            while (read.Read())
+                            var dictionaries = db.Dictionaries.ToList();
+                            _json = JsonConvert.SerializeObject(dictionaries);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "GetStatuses":
+                    {
+                        try
+                        {
+                            var dictionaries = db.Dictionaries.Where(dict => dict.Type == "Status");
+                            List<string> statuses = new();
+                            foreach (var d in dictionaries)
                             {
-                                Dictionary Dictionary = new Dictionary();
-                                Dictionary.ID = Convert.ToInt32(read["id"]);
-                                Dictionary.Name = read["Name"].ToString();
-                                Dictionary.Type = read["Grupa"].ToString();
-                                Dictionary.Description = read["Description"].ToString();
-                                DictionaryList.Add(Dictionary);
+                                statuses.Add(d.Name);
                             }
-                            read.Close();
-                            _json = JsonConvert.SerializeObject(DictionaryList);
+                            _json = JsonConvert.SerializeObject(statuses);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
                         }
                         break;
                     }
             }
             return (_json);
         });
-        app.MapPost("/AdminPanel.html/{target}/{action}", (string target, string action, HttpContext context) =>
+        app.MapPost("/AdminPanel.html/{target}/{action}", (string target, string action, HttpContext context, ModelContext db) =>
         {
             var form = context.Request.Form;
             switch (action)
             {
+                case "getCandidats":
+                    {
+                        try
+                        {
+                            var users = db.Candidats.Distinct().ToList();
+                            _json = JsonConvert.SerializeObject(users);
+                            return (_json);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "getSelectedCandidat":
+                    {
+                        try
+                        {
+                            var user = db.Candidats.Where(candidat => candidat.Id.ToString().Equals(form["ID"])).First();
+                            _json = JsonConvert.SerializeObject(user);
+                            return (_json);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "SetNewUser":
+                    {
+                        try
+                        {
+                            var HrRole = db.Dictionaries.Where(dictionary => dictionary.Name == "HR").First().Id;
+                            var mail = form["FirstName"].ToString().Substring(0, 1) + form["LastName"] + "@email.em";
+                            db.Users.Add(new User
+                            {
+                                Username = form["Username"],
+                                Password = form["Password"],
+                                FirstName = form["FirstName"],
+                                LastName = form["LastName"],
+                                Email = mail,
+                                Roleid = HrRole,
+                                StartDate = DateTime.Now,
+                                EndDate = null
+                            });
+                            db.SaveChanges();
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
                 case "getVacancyV":
                     {
-                        string Title = form["Title"];
-                        string cmdStr = "select distinct * from Vacancies where Title = '" + Title + "'";
-                        List<Vacancies> VacancyList = new List<Vacancies>();
-                        using (OracleConnection conn = new OracleConnection(_connectionString))
+                        try
                         {
-                            OracleCommand cmd = new OracleCommand(cmdStr, conn);
-                            conn.Open();
-                            OracleDataReader read = cmd.ExecuteReader();
-                            while (read.Read())
-                            {
-                                Vacancies Vacancy = new Vacancies();
-                                Vacancy.Title = read["Title"].ToString();
-                                Vacancy.Description = read["Description"].ToString();
-                                VacancyList.Add(Vacancy);
-                            }
-                            read.Close();
-                            _json = JsonConvert.SerializeObject(VacancyList);
+                            var vacancy = db.Vacancies.First(vacancy => vacancy.Title.Equals(form["Title"]));
+                            _json = JsonConvert.SerializeObject(vacancy);
+                            return (_json);
                         }
-                        return (_json);
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
                     }
                 case "SetNewVacancy":
                     {
-                        string Title = form["Title"];
-                        string Description = form["Description"];
-                        using (OracleConnection conn = new OracleConnection(_connectionString))
+                        try
                         {
-                            conn.Open();
-                            using (OracleCommand cmd = conn.CreateCommand())
+                            string Title = form["Title"];
+                            string Description = form["Description"];
+                            using (OracleConnection conn = new(_connectionString))
                             {
-                                cmd.CommandType = CommandType.StoredProcedure;
-                                cmd.CommandText = "Set_Vacancy";
-                                cmd.Parameters.Add("P_VacancyTitle", OracleDbType.Varchar2).Value = Title;
-                                cmd.Parameters.Add("P_Description", OracleDbType.Varchar2).Value = Description;
-                                cmd.ExecuteScalar();
-                                return "Success";
+                                conn.Open();
+                                using (OracleCommand cmd = conn.CreateCommand())
+                                {
+                                    cmd.CommandType = CommandType.StoredProcedure;
+                                    cmd.CommandText = "Set_Vacancy";
+                                    cmd.Parameters.Add("P_VacancyTitle", OracleDbType.Varchar2).Value = Title;
+                                    cmd.Parameters.Add("P_Description", OracleDbType.Varchar2).Value = Description;
+                                    cmd.ExecuteScalar();
+                                    return "Success";
+                                }
                             }
                         }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
                     }
                 case "EditVacancy":
                     {
-                        string Title = form["Title"];
-                        string Description = form["Description"];
-                        int ID = Convert.ToInt32(form["ID"]);
-                        using (OracleConnection conn = new OracleConnection(_connectionString))
+                        try
                         {
-                            conn.Open();
-                            using (OracleCommand cmd = conn.CreateCommand())
+                            string Title = form["Title"];
+                            string Description = form["Description"];
+                            int ID = Convert.ToInt32(form["ID"]);
+                            using (OracleConnection conn = new(_connectionString))
                             {
-                                cmd.CommandType = CommandType.StoredProcedure;
-                                cmd.CommandText = "Edit_Vacancy";
-                                cmd.Parameters.Add("P_ID", OracleDbType.Int32).Value = ID;
-                                cmd.Parameters.Add("P_VacancyTitle", OracleDbType.Varchar2).Value = Title;
-                                cmd.Parameters.Add("P_Description", OracleDbType.Varchar2).Value = Description;
-                                cmd.ExecuteScalar();
-                                return "Success";
+                                conn.Open();
+                                using (OracleCommand cmd = conn.CreateCommand())
+                                {
+                                    cmd.CommandType = CommandType.StoredProcedure;
+                                    cmd.CommandText = "Edit_Vacancy";
+                                    cmd.Parameters.Add("P_ID", OracleDbType.Int32).Value = ID;
+                                    cmd.Parameters.Add("P_VacancyTitle", OracleDbType.Varchar2).Value = Title;
+                                    cmd.Parameters.Add("P_Description", OracleDbType.Varchar2).Value = Description;
+                                    cmd.ExecuteScalar();
+                                    return "Success";
+                                }
                             }
                         }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "EditHiring":
+                    {
+                        try
+                        {
+                            string status = form["Status"];
+                            int candidatId = Convert.ToInt32(form["CandidatID"]);
+                            int id = Convert.ToInt32(form["ID"]);
+                            if (status == "Hired")
+                            {
+                                var hiringToRemove = db.Hirings.Where(hiring => hiring.Id == id).First();
+                                var candidatToRemove = db.Candidats.Where(candidat => candidat.Id == candidatId).First();
+                                var firstDepartment = db.Dictionaries.Where(dict => dict.Type == "Department").First();
+                                var hrPosition = db.Dictionaries.Where(dict => dict.Type == "Roles").Where(role => role.Name == "HR").First();
+                                db.Employees.Add(new Employee
+                                {
+                                    FirstName = candidatToRemove.FirstName,
+                                    LastName = candidatToRemove.LastName,
+                                    Phone = candidatToRemove.Phone,
+                                    Email = candidatToRemove.Email,
+                                    StartDate = DateTime.Now,
+                                    Department = firstDepartment.Id,
+                                    Hiring = hiringToRemove.Id,
+                                    Position = hrPosition.Id
+                                });
+                                //db.Hirings.Remove(hiringToRemove);
+                                //db.Candidats.Remove(candidatToRemove);
+                                db.SaveChanges();
+
+
+                            }
+                            string description = form["Description"];
+
+
+                            var dictionary = db.Dictionaries.Distinct().Where(value => value.Name == status).First();
+                            var hiring = db.Hirings.Distinct().Where(hiring => hiring.Id == id).First();
+
+                            hiring.Status = dictionary.Id;
+                            hiring.Comm = description;
+                            hiring.StatusDate = DateTime.Now;
+                            db.SaveChanges();
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "EditEmployeeMenu": //TODO: {ID -> Username, Password, FirstName, LastName, E-Mail, EndDate}
+                    {
+                        try
+                        {
+                            int id = Convert.ToInt32(form["ID"]);
+                            var employee = db.Employees.Where(employee => employee.Id == id).First();
+                            var departments = db.Dictionaries.Where(dict => dict.Type == "Department").ToList();
+                            var DepName = new List<string>();
+                            foreach(var dep in departments)
+                            {
+                                DepName.Add(dep.Name);
+                            }
+                            var emp = new
+                            {
+                                employee.FirstName,
+                                employee.LastName,
+                                employee.Phone,
+                                employee.Email,
+                                employee.Position,
+                                Department = DepName
+                            };
+                            _json = JsonConvert.SerializeObject(emp);
+                            return _json;
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "EditEmployee": //TODO: {ID-> FirstName, LastName, Phone, Email, Department}
+                    {
+                        try
+                        {
+
+                            int id = Convert.ToInt32(form["ID"]);
+                            var firstName = form["EmployeeFirstName"];
+                            var lastName = form["EmployeeLastName"];
+                            var phone = form["EmployeePhone"];
+                            var department = form["EmployeeDepartment"];
+                            var email = form["EmployeeEmail"];
+                            var departments = db.Dictionaries.Where(dict => dict.Type == "Department").ToList();
+                            var selectedDepartment = departments.Where(dep => dep.Name.Equals(department)).First();
+                            //var departmentId = db.Dictionaries.Where(dict => dict.Id == department).First();
+
+                            var employee = db.Employees.Where(employee => employee.Id == id).First();
+                            employee.FirstName = firstName;
+                            employee.LastName = lastName;
+                            employee.Email = email;
+                            employee.Department = selectedDepartment.Id;
+                            employee.Phone = phone;
+                            db.SaveChanges();
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "EditDictionaryMenu": //TODO: {ID -> Username, Password, FirstName, LastName, E-Mail, EndDate}
+                    {
+                        try
+                        {
+                            int id = Convert.ToInt32(form["ID"]);
+                            var dictionary = db.Dictionaries.Where(dictionary => dictionary.Id == id).First();
+                            _json = JsonConvert.SerializeObject(dictionary);
+                            return _json;
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "EditDictionary": //TODO: {Id -> Name, Type, Description}
+                    {
+                        try
+                        {
+                            int id = Convert.ToInt32(form["ID"]);
+                            var name = form["DictionaryName"];
+                            var group = form["DictionaryGroup"];
+                            var description = form["DictionaryDescription"];
+
+                            var dictionary = db.Dictionaries.Where(dictionary => dictionary.Id == id).First();
+                            dictionary.Name = name;
+                            dictionary.Type = group;
+                            dictionary.Description = description;
+                            db.SaveChanges();
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "EditUser": 
+                    {
+                        try
+                        {
+                            int id = Convert.ToInt32(form["ID"]);
+                            string firstName = form["UserFirstName"].ToString();
+                            string lastName = form["UserLastName"].ToString();
+                            string username = form["UserUsername"].ToString();
+                            string password = form["UserPassword"].ToString();
+                            string email = form["UserEmail"].ToString();
+                            //DateTime endDate = DateTime.Parse(form["UserEndDate"]);
+
+                            var user = db.Users.Where(user => user.Id == id).First();
+                            user.FirstName = firstName;
+                            user.LastName = lastName;
+                            user.Username = username;
+                            user.Password = password;
+                            user.Email = email;
+                            //user.EndDate = endDate;
+
+                            db.SaveChanges();
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "EditUserMenu": //TODO: {ID -> Username, Password, FirstName, LastName, E-Mail, EndDate}
+                    {
+                        try
+                        {
+                            int id = Convert.ToInt32(form["ID"]);
+                            var user = db.Users.Where(user => user.Id == id).First();
+                            _json = JsonConvert.SerializeObject(user);
+                            return _json;
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
                     }
                 case "EditVacancyMenu":
                     {
-                        int ID = Convert.ToInt32(form["ID"]);
-                        using (OracleConnection conn = new OracleConnection(_connectionString))
+                        try
                         {
-                            conn.Open();
-                            using (OracleCommand cmd = conn.CreateCommand())
-                            {
-                                cmd.CommandType = CommandType.StoredProcedure;
-                                cmd.CommandText = "Edit_VacancyMenu";
-                                cmd.Parameters.Add("Res", OracleDbType.Clob, ParameterDirection.ReturnValue);
-                                cmd.Parameters.Add("P_ID", OracleDbType.Int32).Value = ID;
-                                cmd.ExecuteNonQuery();
+                            int ID = Convert.ToInt32(form["ID"]);
 
-                                OracleClob myClob = (OracleClob)cmd.Parameters["Res"].Value;
-                                var valuesFromClob = myClob.Value;
-                                var dataFromClob = JObject.Parse(valuesFromClob);
-                                _json = JsonConvert.SerializeObject(dataFromClob);
-                                return _json;
-                            }
+                            var vacancy = db.Vacancies.Where(vacancy => vacancy.Id == ID).First();
+                            var vac = new
+                            {
+                                VacancyID = ID,
+                                VacancyTitle = vacancy.Title,
+                                VacancyDescription = vacancy.Description,
+                                VacancyEndDate = vacancy.EndDate
+                            };
+                            _json = JsonConvert.SerializeObject(vac);
+                            return _json;
                         }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "EditHiringMenu":
+                    {
+                        try
+                        {
+                            int ID = Convert.ToInt32(form["ID"]);
+
+                            var hiring = db.Hirings.Where(hiring => hiring.Id == ID).First();
+                            var statusName = db.Dictionaries.Where(dict => dict.Id == hiring.Status).First();
+                            var hir = new
+                            {
+                                HiringID = ID,
+                                HiringCandidat = hiring.Candidat,
+                                HiringUsers = hiring.Users,
+                                HiringStatus = statusName.Name,
+                                HiringVacancy = hiring.Vacancy,
+                                HiringStatusDate = hiring.StatusDate,
+                                HiringComm = hiring.Comm
+
+                            };
+                                   _json = JsonConvert.SerializeObject(hir);
+                                    return _json;
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
                     }
                 case "DeleteVacancy":
                     {
-                        int ID = Convert.ToInt32(form["ID"]);
-                        using (OracleConnection conn = new OracleConnection(_connectionString))
+                        try
                         {
-                            conn.Open();
-                            using (OracleCommand cmd = conn.CreateCommand())
+                            int ID = Convert.ToInt32(form["ID"]);
+                            using (OracleConnection conn = new(_connectionString))
                             {
-                                cmd.CommandType = CommandType.StoredProcedure;
-                                cmd.CommandText = "Delete_Vacancy";
-                                cmd.Parameters.Add("P_ID", OracleDbType.Int32).Value = ID;
-                                cmd.ExecuteNonQuery();
+                                conn.Open();
+                                using (OracleCommand cmd = conn.CreateCommand())
+                                {
+                                    cmd.CommandType = CommandType.StoredProcedure;
+                                    cmd.CommandText = "Delete_Vacancy";
+                                    cmd.Parameters.Add("P_ID", OracleDbType.Int32).Value = ID;
+                                    cmd.ExecuteNonQuery();
 
-                                return "Success";
+                                    return "Success";
+                                }
                             }
                         }
-                        
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "GetCandidat":
+                    {
+                        try
+                        {
+                            int HiringID = Convert.ToInt32(form["ID"]);
+                            var candidat = db.Candidats.Where(candidat => candidat.Id == HiringID).First();
+                            return JsonConvert.SerializeObject(candidat);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                    }
+                case "DeleteUser":
+                    {
+                        try
+                        {
+                            int ID = Convert.ToInt32(form["ID"]);
+                            var user = db.Users.Where(user => user.Id == ID).First();
+                            db.Users.Remove(user);
+                            db.SaveChanges();
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                        //return JsonConvert.SerializeObject(candidat);
+                    }
+                case "DeleteEmployee":
+                    {
+                        try
+                        {
+                            int ID = Convert.ToInt32(form["ID"]);
+                            var employee = db.Employees.Where(employee=> employee.Id == ID)
+                                .Include(entity=> entity.HiringNavigation)
+                                .Include(entity => entity.DepartmentNavigation)
+                                .Include(entity => entity.PositionNavigation).First();
+                            db.Employees.Remove(employee);
+                            db.SaveChanges();
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                        //return JsonConvert.SerializeObject(candidat);
+                    }
+                case "DeleteDictionary":
+                    {
+                        try
+                        {
+                            int ID = Convert.ToInt32(form["ID"]);
+                            var dictionary = db.Dictionaries.Where(dictionary => dictionary.Id == ID)
+                            .Include(entity=>entity.EmployeeDepartmentNavigations)
+                            .Include(entity=>entity.EmployeePositionNavigations)
+                            .First();
+                            db.Dictionaries.Remove(dictionary);
+                            db.SaveChanges();
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                        //return JsonConvert.SerializeObject(candidat);
+                    }
+                case "DeleteCandidat":
+                    {
+                        try
+                        {
+                            int ID = Convert.ToInt32(form["ID"]);
+                            var hiring = db.Hirings.Where(hiring => hiring.Id == ID).Include(entity => entity.CandidatNavigation).First();
+                            db.Hirings.Remove(hiring);
+                            db.SaveChanges();
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                        //return JsonConvert.SerializeObject(candidat);
+                    }
+                case "GetCV":
+                    {
+                        try
+                        {
+                            //var candidat = db.Candidats.Where(candidat => candidat.Id.ToString().Equals(form["ID"])).First();
+                            //context.Response.SendFileAsync(Directory.GetCurrentDirectory() + candidat.Linkcv);
+                            //using FileStream fileStream = File.Open(Directory.GetCurrentDirectory() + candidat.Linkcv, FileMode.Open);
+
+                            //var bytes = new byte[fileStream.Length];
+                            //fileStream.Read(bytes, 0, bytes.Length);
+                            //Results.Content(fileStream);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message + " " + ex.StackTrace);
+                        }
+                        break;
+                        //return JsonConvert.SerializeObject(candidat);
                     }
             }
             return (string.Empty);
-        });
-
-        app.UseEndpoints(endpoints =>
-        {
         });
         app.Run();
     }

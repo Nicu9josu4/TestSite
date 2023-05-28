@@ -1,7 +1,8 @@
 {
   "profiles": {
     "HrWebRecruitment": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "launchBrowser": true
     },
     "IIS Express": {
       "commandName": "IISExpress",
@@ -12,8 +13,8 @@
     "windowsAuthentication": false,
     "anonymousAuthentication": true,
     "iisExpress": {
-      "applicationUrl": "https://localhost:44321",
-      "sslPort": 44328
+      "applicationUrl": "https://localhost:44328",
+      "sslPort": 0
     }
   }
 }

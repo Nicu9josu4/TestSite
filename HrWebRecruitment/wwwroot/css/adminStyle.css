@@ -15,28 +15,27 @@ body {
     margin-right: -8px;
     overflow: hidden;
     background-color: #6b8ddb;
-} 
-
-/* Navbar links */
-.topnav a {
-    float: left;
-    display: block;
-    color: #f7f5f5;
-    text-align: center;
-    padding: 14px 16px;
-    text-decoration: none;
-    cursor: pointer;
 }
 
-/* Links - change color on hover */
-    .topnav a:hover {
-    background-color: #ddd;
-}
+    /* Navbar links */
+    .topnav a {
+        float: left;
+        display: block;
+        color: #f7f5f5;
+        text-align: center;
+        padding: 14px 16px;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+        /* Links - change color on hover */
+        .topnav a:hover {
+            background-color: #ddd;
+        }
 
 .topNavSelected {
     background-color: #ddd;
-} 
-
+}
 
 /* .navbar {
     margin-top: 70px;
@@ -68,9 +67,6 @@ body {
 .navbar ul li:hover {
     transform: scale(1.3);
 } */
-
-
-
 table {
     margin-top: 5px;
     width: 100%;
@@ -93,34 +89,84 @@ td {
     color: blue;
     margin-right: 20px;
 }
-.WelcomeToPanel{
-    display:block;
-    text-align:center;
+
+.WelcomeToPanel {
+    display: block;
+    text-align: center;
     top: 15%;
 }
-.addVacancies{
+
+.addVacancies, .addUser {
     display: none;
-    position:fixed;
-    right: 10px;
-    bottom: 10px;
+    position: relative;
+    width: 80%;
     border: 0px;
-    background-color: aquamarine;
-    padding: 10px;
-    border-radius: 35px;
+    margin-top: 20px;
+    margin-left: 10%;
+    background-color: lightgreen;
+    padding: 15px;
+    border-radius: 5px;
     cursor: pointer;
 }
-.PopUpAddVacancyWindow-Behind, .PopUpEditHiringWindow-Behind {
+
+#ShowCandidatInfo {
+    position: relative;
+    width: 65%;
+    border: 0px;
+    margin-left: 17%;
+    background-color: lightgreen;
+    padding: 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#CandidatStatus {
+    position: relative;
+    float: right;
+    width: 10%;
+    border: 0px;
+    margin-left: 89%;
+    background-color: lightgreen;
+    padding: 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+/*#ShowCandidatCV {
+    display: none;
+    position: relative;
+    width: 40%;
+    float: right;
+    border: 0px;
+    margin-top: -15px;
+    margin-left: 50%;
+    background-color: lightgreen;
+    padding: 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}*/
+
+.PopUpAddVacancyWindow-Behind, .PopUpEditHiringWindow-Behind, .PopUpAddUserWindow-Behind, .PopUpEditUserWindow-Behind, .PopUpEditEmployeeWindow-Behind, .PopUpEditDictionaryWindow-Behind {
     display: none;
     position: fixed;
-    top: 47px;
+    top: 0;
+    /*top: 47px;*/
     bottom: 0;
     left: 0;
     right: 0;
     background-color: rgb(0,0,0); /* Fallback color */
     background-color: rgba(0,0,0,0.5);
 }
-.PopUpAddVacancyWindow, .PopUpEditHiringWindow {
-    position: fixed;
+
+.PopUpAddVacancyWindow, .PopUpEditHiringWindow, .PopUpAddUserWindow, .PopUpEditUserWindow, .PopUpEditEmployeeWindow, .PopUpEditDictionaryWindow {
+    background-color: #fefefe; /* Culoarea de fundal a conținutului */
+    margin: 5% auto; /* Centrarea conținutului pe ecran */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 55%; /* Lățimea conținutului */
+    height: 600px;
+    border-radius: 15px;
+    /*position: fixed;
     display: block;
     width: 70%;
     height: 600px;
@@ -129,7 +175,7 @@ td {
     border-radius: 25px;
     border: 2px solid blue;
     left: 15%;
-    top: 10%;
+    top: 10%;*/
     /*margin: 5% auto;*/
 }
 
@@ -138,40 +184,91 @@ td {
     display: block;
     width: 30%;
     height: 200px;
-    padding: 30px;
-    background-color: #fff;
-    border-radius: 25px;
-    border: 2px solid blue;
-    left: 30%;
+    left: 33%;
     top: 20%;
-    margin: 5% auto;
+    background-color: #fefefe; /* Culoarea de fundal a conținutului */
+    margin: 5% auto; /* Centrarea conținutului pe ecran */
+    padding: 20px;
+    border: 1px solid #888;
+    border-radius: 15px;
 }
 
-#SelectModel, #VacTitle, #SetDate {
+/*#SelectModel, #VacTitle, #SetDate {
     width: 250px;
     border: 0px;
     background-color: #adadad;
     border-radius: 25px;
     padding: 10px;
     margin-bottom: 20px;
+}*/
+
+.PopUpAddVacancyWindow-body, .PopUpEditHiringWindow-body, .PopUpAddUserWindow-body, .PopUpEditUserWindow-body, .PopUpEditEmployeeWindow-body, .PopUpEditDictionaryWindow-body {
+    /*position: relative;
+    float: left;*/
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    grid-gap: 20px;
 }
 
-.PopUpAddVacancyWindow-body, .PopUpEditHiringWindow-body {
-    position: relative;
-    float: left;
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
 }
 
+input[type="text"], textarea, #SelectModel, #SelectUserModel, #SetDate, #EmployeeDepartment {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+textarea {
+    height: 150px;
+}
+/*
 #VacancyDesc {
     width: 400px;
     height: 400px;
+}*/
+/* Stilizarea butoanelor */
+#EditVacancyButton, #EditHiringButton, #DeleteHiringButton, #DeleteVacancyButton, #AddVacancyButton, #ShowCandidatCV, #EditUserButton, #DeleteUserButton, #AddUserButton, #EditEmployeeButton, #DeleteEmployeeButton, #EditDictionaryButton, #DeleteDictionaryButton {
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
-.PopUpAddVacancyWindow-body2, .PopUpEditHiringWindow-body2 {
+#EditVacancyButton, #EditHiringButton, #AddVacancyButton, #ShowCandidatCV, #EditUserButton, #AddUserButton, #EditEmployeeButton, #EditDictionaryButton {
+    background-color: #4CAF50;
+}
+
+#DeleteVacancyButton, #DeleteHiringButton, #DeleteUserButton, #DeleteEmployeeButton, #DeleteDictionaryButton {
+    background-color: #f44336;
+}
+
+.button-group, .data-group {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.data-group1 {
+    display: flex;
+    justify-content: space-evenly;
+    margin-top: 20px;
+}
+
+/*.PopUpAddVacancyWindow-body2, .PopUpEditHiringWindow-body2 {
     position: relative;
     float: right;
-}
+}*/
 
-#AddVacancyButton, #EditVacancyButton {
+/*#AddVacancyButton, #EditVacancyButton {
     position: absolute;
     right: 0px;
     bottom: -40px;
@@ -190,3 +287,4 @@ td {
     background-color: palevioletred;
     cursor: pointer;
 }
+*/

@@ -71,13 +71,15 @@ section {
     color: lightsteelblue;
     font-weight: 700;
     transition: 0.1s;
+
 }
 
-.navbar ul li:hover {
-    /* transform: scale(1.3); */
-    /* box-shadow: 4px 4px 50px 5px rgba(30, 31, 32, 0.7); */
-    box-shadow: 4px 4px 50px 5px black;
-}
+    .navbar ul li:hover {
+        /* transform: scale(1.3); */
+        /* box-shadow: 4px 4px 50px 5px rgba(30, 31, 32, 0.7); */
+        box-shadow: 4px 4px 50px 5px black;
+        cursor: pointer;
+    }
 
 
 .MenuTable {

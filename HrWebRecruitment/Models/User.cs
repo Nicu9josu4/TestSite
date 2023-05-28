@@ -1,15 +1,27 @@
-﻿namespace HrWebRecruitment.Models
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace HrWebRecruitment;
+
+public partial class User
 {
-    public class User
-    {
-        public int ID { get; set; }
-        public string Username { get; set; }
-        public string Password { get; set; }
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string Email { get; set; }
-        public string RoleID { get; set; }
-        public string StartDate { get; set; }
-        public string EndDate { get; set; }
-    }
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public decimal Id { get; set; }
+
+    public string? Username { get; set; }
+
+    public string? Password { get; set; }
+
+    public string? FirstName { get; set; }
+
+    public string? LastName { get; set; }
+
+    public string? Email { get; set; }
+
+    public decimal? Roleid { get; set; }
+
+    public DateTime? StartDate { get; set; }
+
+    public DateTime? EndDate { get; set; }
 }

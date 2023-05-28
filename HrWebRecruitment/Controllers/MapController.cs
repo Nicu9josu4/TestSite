@@ -1,6 +1,6 @@
 ﻿namespace HrWebRecruitment.Controllers
 {
-    public class MapController
+    public class HomeController
     {
 
     }
