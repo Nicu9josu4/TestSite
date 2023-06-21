@@ -30,7 +30,7 @@ public partial class ModelContext : DbContext
     public virtual DbSet<Vacancy> Vacancies { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseOracle("Data Source=localhost:1521/orcl.moldcell.intern;Persist Security Info=True;User ID=WebDeveloper;Password=nicu9josu4");
+        => optionsBuilder.UseOracle("Data Source=*;Persist Security Info=True;User ID=*;Password=*");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
